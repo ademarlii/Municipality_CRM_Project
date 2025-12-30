@@ -27,7 +27,7 @@ import java.time.Duration;
         }
 )
 @Import(TestcontainersConfiguration.class)
-public class RegisterUiE2ETEst {
+public class RegisterUiE2ETest {
 
     private static final String UI_BASE_URL = System.getProperty("ui", "http://localhost:5173");
     private static final String BACKEND_BASE_URL = System.getProperty("backend", "http://localhost:6969");

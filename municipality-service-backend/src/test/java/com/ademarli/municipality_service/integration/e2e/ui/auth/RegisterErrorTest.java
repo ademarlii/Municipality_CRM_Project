@@ -27,7 +27,7 @@ import java.time.Duration;
         }
 )
 @Import(TestcontainersConfiguration.class)
-public class RegisterError {
+public class RegisterErrorTest {
 
 ///Case açıklaması
 /// Burda kullanıcı giriş aşamasında gerekli bilgilerin girilmediği zaman formik yuptan gelen hataların doğruluğunu test  ediyoruz.
@@ -51,7 +51,7 @@ public class RegisterError {
 
         ChromeOptions options = new ChromeOptions();
 
-        boolean headless = Boolean.parseBoolean(System.getProperty("ui.headless", "false"));
+        boolean headless = Boolean.parseBoolean(System.getProperty("ui.headless", "true"));
         if (headless) options.addArguments("--headless=new");
 
         options.addArguments("--window-size=1440,900");

@@ -18,7 +18,7 @@ import java.time.Duration;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Slf4j
-public class AdminLoginAndCreateDepartmentCategory {
+public class AdminLoginAndCreateDepartmentCategoryTest {
 
 
     private WebDriver driver;
@@ -46,7 +46,7 @@ public class AdminLoginAndCreateDepartmentCategory {
         WebDriverManager.chromedriver().setup();
 
         ChromeOptions options=new ChromeOptions();
-        boolean headless = Boolean.parseBoolean(System.getProperty("ui.headless", "false"));
+        boolean headless = Boolean.parseBoolean(System.getProperty("ui.headless", "true"));
         if (headless) options.addArguments("--headless=new");
         options.addArguments("--window-size=1440,900");
         options.addArguments("--disable-gpu");

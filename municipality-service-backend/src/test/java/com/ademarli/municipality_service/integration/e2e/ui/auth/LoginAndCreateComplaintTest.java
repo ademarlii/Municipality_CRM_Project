@@ -16,7 +16,7 @@ import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class LoginAndCreateComplaint {
+public class LoginAndCreateComplaintTest {
 
     private static final String UI_BASE = System.getProperty("ui.baseUrl", "http://localhost:5173");
 
@@ -40,7 +40,7 @@ public class LoginAndCreateComplaint {
         WebDriverManager.chromedriver().setup();
 
         ChromeOptions options = new ChromeOptions();
-        boolean headless = Boolean.parseBoolean(System.getProperty("ui.headless", "false"));
+        boolean headless = Boolean.parseBoolean(System.getProperty("ui.headless", "true"));
         if (headless) options.addArguments("--headless=new");
 
         options.addArguments("--window-size=1440,900");

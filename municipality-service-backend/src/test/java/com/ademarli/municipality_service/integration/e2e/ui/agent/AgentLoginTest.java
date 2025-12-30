@@ -14,7 +14,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
 
-public class AgentLogin {
+public class AgentLoginTest {
 
     private static final String UI_BASE = System.getProperty("ui.baseUrl", "http://localhost:5173");
     private static final String API_BASE = System.getProperty("api.baseUrl", "http://localhost:6969");
@@ -42,7 +42,7 @@ public class AgentLogin {
         WebDriverManager.chromedriver().setup();
 
         ChromeOptions options = new ChromeOptions();
-        boolean headless = Boolean.parseBoolean(System.getProperty("ui.headless", "false"));
+        boolean headless = Boolean.parseBoolean(System.getProperty("ui.headless", "true"));
         if (headless) options.addArguments("--headless=new");
 
         options.addArguments("--window-size=1440,900");

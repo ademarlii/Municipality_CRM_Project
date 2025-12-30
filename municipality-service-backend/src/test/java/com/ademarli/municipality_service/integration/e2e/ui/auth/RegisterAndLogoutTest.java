@@ -1,7 +1,6 @@
 package com.ademarli.municipality_service.integration.e2e.ui.auth;
 
 import com.ademarli.municipality_service.TestcontainersConfiguration;
-import com.ademarli.municipality_service.repository.UserRepository;
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,7 +25,7 @@ import java.util.List;
         }
 )
 @Import(TestcontainersConfiguration.class)
-public class RegisterAndLogout {
+public class RegisterAndLogoutTest {
 /// Case Açıklaması
 /// Kullanıcı kayıt sayfasına gider, geçerli bilgilerle kayıt olur, ardından menüyü açar ve çıkış yapar. Başarılı bir şekilde çıkış yapıldığını doğrular.
     private static final String UI_BASE_URL = System.getProperty("ui", "http://localhost:5173");
@@ -53,7 +52,7 @@ public class RegisterAndLogout {
         WebDriverManager.chromedriver().setup();
         ChromeOptions options = new ChromeOptions();
 
-        boolean headless = Boolean.parseBoolean(System.getProperty("ui.headless", "false"));
+        boolean headless = Boolean.parseBoolean(System.getProperty("ui.headless", "true"));
         if (headless) options.addArguments("--headless=new");
 
         options.addArguments("--window-size=1440,900");

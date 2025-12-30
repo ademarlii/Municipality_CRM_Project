@@ -13,7 +13,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class AdminLoginAndCreateDepartment {
+public class AdminLoginAndCreateDepartmentTest {
 
     private WebDriver driver;
     private WebDriverWait wait;
@@ -42,7 +42,7 @@ public class AdminLoginAndCreateDepartment {
     @BeforeEach
     void setup() {
         ChromeOptions options = new ChromeOptions();
-        boolean headless = Boolean.parseBoolean(System.getProperty("ui.headless", "false"));
+        boolean headless = Boolean.parseBoolean(System.getProperty("ui.headless", "true"));
         if (headless) options.addArguments("--headless=new");
 
         options.addArguments("--window-size=1440,900");
