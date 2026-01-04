@@ -10,10 +10,11 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U municipality_user -d municipality_db"]
+      test: [ "CMD-SHELL", "pg_isready -U municipality_user -d municipality_db" ]
       interval: 5s
       timeout: 5s
       retries: 20
+      start_period: 30s
 
   backend:
     build:
