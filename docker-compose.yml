@@ -1,7 +1,6 @@
 services:
   db:
     image: postgres:16
-    container_name: municipality_db
     environment:
       POSTGRES_DB: municipality_db
       POSTGRES_USER: municipality_user
@@ -20,7 +19,6 @@ services:
     build:
       context: ./municipality-service-backend
       dockerfile: Dockerfile
-    container_name: municipality_backend
     depends_on:
       db:
         condition: service_healthy
@@ -42,7 +40,6 @@ services:
     build:
       context: ./municipality-service-frontend
       dockerfile: Dockerfile
-    container_name: municipality_frontend
     depends_on:
       - backend
     environment:
@@ -52,7 +49,6 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4:8
-    container_name: municipality_pgadmin
     depends_on:
       db:
         condition: service_healthy
