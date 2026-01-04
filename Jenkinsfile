@@ -1,10 +1,7 @@
 pipeline {
   agent any
 
-  options {
-    timestamps()
-    disableConcurrentBuilds()
-  }
+  options { timestamps() }
 
   environment {
     COMPOSE_FILE = "docker-compose.yml"
@@ -14,11 +11,9 @@ pipeline {
 
     UI_BASE_URL  = "http://localhost:5173"
     UI_HEADLESS  = "true"
-    E2E_API_BASE = "http://localhost:6969"
   }
 
   stages {
-
     stage('Checkout') {
       steps { checkout scm }
     }
@@ -26,11 +21,11 @@ pipeline {
     stage('Docker Compose Up') {
       steps {
         sh '''
-          set -euxo pipefail
+          set -eux
           docker version
-          docker compose version
-          docker compose -f "$COMPOSE_FILE" up -d --build
-          docker compose -f "$COMPOSE_FILE" ps
+          docker-compose version
+          docker-compose -f "$COMPOSE_FILE" up -d --build
+          docker-compose -f "$COMPOSE_FILE" ps
         '''
       }
     }
@@ -38,23 +33,19 @@ pipeline {
     stage('Wait: DB Healthy') {
       steps {
         sh '''
-          set -euo pipefail
+          set -eux
           name="municipality_db"
           echo "Waiting DB health: $name"
-
           ok=0
           for i in $(seq 1 60); do
             status="$(docker inspect -f '{{.State.Health.Status}}' "$name" 2>/dev/null || true)"
-            if echo "$status" | grep -qi healthy; then ok=1; break; fi
+            if [ "$status" = "healthy" ]; then ok=1; break; fi
             sleep 2
           done
-
           if [ "$ok" -ne 1 ]; then
-            echo "DB did not become healthy in time."
-            docker logs --tail 200 "$name" || true
+            docker logs "$name" || true
             exit 1
           fi
-
           echo "DB is healthy."
         '''
       }
@@ -63,22 +54,18 @@ pipeline {
     stage('Wait: Backend Ready') {
       steps {
         sh '''
-          set -euo pipefail
+          set -eux
           url="$BACKEND_URL/actuator/health"
           echo "Waiting Backend: $url"
-
           ok=0
           for i in $(seq 1 60); do
-            if curl -fsS --max-time 2 "$url" | grep -q '"status":"UP"' ; then ok=1; break; fi
+            if curl -fsS --max-time 2 "$url" | grep -q '"status":"UP"'; then ok=1; break; fi
             sleep 2
           done
-
           if [ "$ok" -ne 1 ]; then
-            echo "Backend did not become ready in time."
-            docker logs --tail 200 municipality_backend || true
+            docker logs municipality_backend || true
             exit 1
           fi
-
           echo "Backend is ready."
         '''
       }
@@ -87,23 +74,19 @@ pipeline {
     stage('Wait: Frontend Ready') {
       steps {
         sh '''
-          set -euo pipefail
-          url="$FRONTEND_URL/"
+          set -eux
+          url="$FRONTEND_URL"
           echo "Waiting Frontend: $url"
-
           ok=0
           for i in $(seq 1 60); do
             code="$(curl -s -o /dev/null -w "%{http_code}" --max-time 2 "$url" || true)"
-            if [ "$code" -ge 200 ] && [ "$code" -lt 500 ]; then ok=1; break; fi
+            if [ "$code" != "" ] && [ "$code" -ge 200 ] && [ "$code" -lt 500 ]; then ok=1; break; fi
             sleep 2
           done
-
           if [ "$ok" -ne 1 ]; then
-            echo "Frontend did not become ready in time."
-            docker logs --tail 200 municipality_frontend || true
+            docker logs municipality_frontend || true
             exit 1
           fi
-
           echo "Frontend is ready."
         '''
       }
@@ -111,25 +94,17 @@ pipeline {
 
     stage('Build & UI E2E Tests (mvn verify)') {
       steps {
-        sh '''
-          set -euxo pipefail
-          cd municipality-service-backend
-
-          if [ -f "./mvnw" ]; then
-            chmod +x ./mvnw
-            ./mvnw \
-              -Dui.baseUrl="$UI_BASE_URL" \
-              -Dui.headless="$UI_HEADLESS" \
-              -De2e.apiBase="$E2E_API_BASE" \
-              clean verify
-          else
-            mvn \
-              -Dui.baseUrl="$UI_BASE_URL" \
-              -Dui.headless="$UI_HEADLESS" \
-              -De2e.apiBase="$E2E_API_BASE" \
-              clean verify
-          fi
-        '''
+        dir('municipality-service-backend') {
+          sh '''
+            set -eux
+            if [ -f "./mvnw" ]; then
+              chmod +x ./mvnw
+              ./mvnw -Dui.baseUrl="$UI_BASE_URL" -Dui.headless="$UI_HEADLESS" clean verify
+            else
+              mvn -Dui.baseUrl="$UI_BASE_URL" -Dui.headless="$UI_HEADLESS" clean verify
+            fi
+          '''
+        }
       }
     }
 
@@ -148,14 +123,11 @@ pipeline {
 
       sh '''
         set +e
-        docker compose -f "$COMPOSE_FILE" ps
-        docker compose -f "$COMPOSE_FILE" logs --no-color --tail 200
-        docker compose -f "$COMPOSE_FILE" down -v
+        docker-compose -f "$COMPOSE_FILE" ps
+        docker-compose -f "$COMPOSE_FILE" logs --no-color
+        docker-compose -f "$COMPOSE_FILE" down -v
         true
       '''
     }
   }
 }
-
-
-///
