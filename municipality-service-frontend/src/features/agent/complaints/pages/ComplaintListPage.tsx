@@ -1,15 +1,37 @@
-
-// ============================================
-// 7. src/features/agent/complaints/pages/ComplaintListPage.tsx
-// ============================================
 import { useEffect, useState } from "react";
-import { Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack, TextField, Typography, CircularProgress, Alert, Box, InputAdornment } from "@mui/material";
+import {
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    MenuItem,
+    Stack,
+    TextField,
+    Typography,
+    CircularProgress,
+    Alert,
+    Box,
+    InputAdornment,
+} from "@mui/material";
 import { Search, FilterList, Edit } from "@mui/icons-material";
 import { useFormik } from "formik";
-import { listMyDepartmentComplaints, changeStatus, type StaffComplaintListItem, type StatusKey } from "../api";
+import {
+    listMyDepartmentComplaints,
+    changeStatus,
+    type StaffComplaintListItem,
+    type StatusKey,
+} from "../api";
 import { useToast } from "../../../../shared/utils/toast";
 import { getErrorMessage } from "../../../../shared/api/error";
-import { changeStatusValidationSchema, changeStatusInitialValues, type ChangeStatusFormValues } from "../validation/agentComplaintValidation";
+import {
+    changeStatusValidationSchema,
+    changeStatusInitialValues,
+    type ChangeStatusFormValues,
+} from "../validation/agentComplaintValidation";
 
 const STATUS_OPTIONS: Array<{ value: StatusKey; label: string }> = [
     { value: "NEW", label: "Yeni" },
@@ -19,16 +41,21 @@ const STATUS_OPTIONS: Array<{ value: StatusKey; label: string }> = [
 ];
 
 function statusLabel(s: StatusKey) {
-    return STATUS_OPTIONS.find(x => x.value === s)?.label ?? s;
+    return STATUS_OPTIONS.find((x) => x.value === s)?.label ?? s;
 }
 
 function statusColor(s: StatusKey): "default" | "info" | "warning" | "success" {
     switch (s) {
-        case "NEW": return "info";
-        case "IN_REVIEW": return "warning";
-        case "RESOLVED": return "success";
-        case "CLOSED": return "default";
-        default: return "default";
+        case "NEW":
+            return "info";
+        case "IN_REVIEW":
+            return "warning";
+        case "RESOLVED":
+            return "success";
+        case "CLOSED":
+            return "default";
+        default:
+            return "default";
     }
 }
 
@@ -57,7 +84,10 @@ export default function ComplaintListPage() {
                 await changeStatus(selected.id, {
                     toStatus: values.toStatus as StatusKey,
                     note: values.note.trim() || undefined,
-                    publicAnswer: values.toStatus === "RESOLVED" ? values.publicAnswer.trim() : undefined,
+                    publicAnswer:
+                        values.toStatus === "RESOLVED"
+                            ? values.publicAnswer.trim()
+                            : undefined,
                 });
                 toast.success("Şikayet güncellendi.");
                 closeEdit();
@@ -85,7 +115,9 @@ export default function ComplaintListPage() {
         }
     };
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => {
+        load();
+    }, []);
 
     const openEdit = (c: StaffComplaintListItem) => {
         setSelected(c);
@@ -106,15 +138,22 @@ export default function ComplaintListPage() {
     return (
         <Stack spacing={3}>
             <Box>
-                <Typography variant="h4" fontWeight={900}>Şikayetler</Typography>
+                <Typography variant="h4" fontWeight={900}>
+                    Şikayetler
+                </Typography>
                 <Typography variant="body2" sx={{ opacity: 0.7, mt: 0.5 }}>
                     Departmanınıza atanan şikayetleri yönetin
                 </Typography>
             </Box>
 
+            {/* filtreler - çalışmıyor dedin, dokunmuyoruz; sadece testid eklemek istersen sen ekle */}
             <Card elevation={0} sx={{ border: "1px solid #e5e7eb" }}>
                 <CardContent>
-                    <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="center">
+                    <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={2}
+                        alignItems="center"
+                    >
                         <TextField
                             label="Ara (Takip Kodu / Başlık)"
                             value={q}
@@ -145,7 +184,9 @@ export default function ComplaintListPage() {
                         >
                             <MenuItem value="ALL">Hepsi</MenuItem>
                             {STATUS_OPTIONS.map((s) => (
-                                <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
+                                <MenuItem key={s.value} value={s.value}>
+                                    {s.label}
+                                </MenuItem>
                             ))}
                         </TextField>
 
@@ -158,46 +199,101 @@ export default function ComplaintListPage() {
 
             <Stack spacing={2}>
                 {loading && (
-                    <Card><CardContent sx={{ textAlign: "center", py: 4 }}><CircularProgress /></CardContent></Card>
+                    <Card>
+                        <CardContent sx={{ textAlign: "center", py: 4 }}>
+                            <CircularProgress />
+                        </CardContent>
+                    </Card>
                 )}
 
                 {!loading && rows.length === 0 && (
-                    <Card><CardContent><Typography sx={{ opacity: 0.75 }}>Kriterlere uygun şikayet bulunamadı.</Typography></CardContent></Card>
-                )}
-
-                {!loading && rows.map((c) => (
-                    <Card key={c.id} elevation={0} sx={{ border: "1px solid #e5e7eb" }}>
+                    <Card>
                         <CardContent>
-                            <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                <Stack flex={1}>
-                                    <Typography fontWeight={900}>{c.title}</Typography>
-                                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-                                        <Typography variant="body2" sx={{ opacity: 0.7, fontFamily: "monospace" }}>
-                                            {c.trackingCode}
-                                        </Typography>
-                                        <Chip label={statusLabel(c.status)} size="small" color={statusColor(c.status)} />
-                                    </Stack>
-                                </Stack>
-
-                                <Button variant="outlined" size="small" startIcon={<Edit />} onClick={() => openEdit(c)}>
-                                    Düzenle
-                                </Button>
-                            </Stack>
+                            <Typography sx={{ opacity: 0.75 }}>
+                                Kriterlere uygun şikayet bulunamadı.
+                            </Typography>
                         </CardContent>
                     </Card>
-                ))}
+                )}
+
+                {!loading &&
+                    rows.map((c) => (
+                        <Card
+                            key={c.id}
+                            data-testid={`agent-complaint-card-${c.id}`}
+                            elevation={0}
+                            sx={{ border: "1px solid #e5e7eb" }}
+                        >
+                            <CardContent>
+                                <Stack
+                                    direction="row"
+                                    justifyContent="space-between"
+                                    alignItems="center"
+                                >
+                                    <Stack flex={1}>
+                                        <Typography
+                                            data-testid={`agent-complaint-title-${c.id}`}
+                                            fontWeight={900}
+                                        >
+                                            {c.title}
+                                        </Typography>
+
+                                        <Stack
+                                            direction="row"
+                                            spacing={1}
+                                            alignItems="center"
+                                            sx={{ mt: 0.5 }}
+                                        >
+                                            <Typography
+                                                data-testid={`agent-complaint-tracking-${c.id}`}
+                                                variant="body2"
+                                                sx={{ opacity: 0.7, fontFamily: "monospace" }}
+                                            >
+                                                {c.trackingCode}
+                                            </Typography>
+
+                                            <Chip
+                                                data-testid={`agent-complaint-status-${c.id}`}
+                                                label={statusLabel(c.status)}
+                                                size="small"
+                                                color={statusColor(c.status)}
+                                            />
+                                        </Stack>
+                                    </Stack>
+
+                                    <Button
+                                        data-testid={`agent-complaint-edit-${c.id}`}
+                                        variant="outlined"
+                                        size="small"
+                                        startIcon={<Edit />}
+                                        onClick={() => openEdit(c)}
+                                    >
+                                        Düzenle
+                                    </Button>
+                                </Stack>
+                            </CardContent>
+                        </Card>
+                    ))}
             </Stack>
 
-            <Dialog open={open} onClose={closeEdit} fullWidth maxWidth="sm">
+            <Dialog
+                open={open}
+                onClose={closeEdit}
+                fullWidth
+                maxWidth="sm"
+                data-testid="agent-edit-dialog"
+            >
                 <DialogTitle>Şikayeti Düzenle</DialogTitle>
+
                 <form onSubmit={formik.handleSubmit}>
                     <DialogContent>
                         <Stack spacing={3} sx={{ pt: 1 }}>
-                            <Alert severity="info">
+                            <Alert severity="info" data-testid="agent-edit-info">
                                 #{selected?.id} • {selected?.trackingCode}
                             </Alert>
 
                             <TextField
+                                data-testid="agent-edit-status"
                                 select
                                 fullWidth
                                 name="toStatus"
@@ -207,13 +303,17 @@ export default function ComplaintListPage() {
                                 onBlur={formik.handleBlur}
                                 error={formik.touched.toStatus && Boolean(formik.errors.toStatus)}
                                 helperText={formik.touched.toStatus && formik.errors.toStatus}
+                                inputProps={{ "data-testid": "agent-edit-status-input" }}
                             >
                                 {STATUS_OPTIONS.map((s) => (
-                                    <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
+                                    <MenuItem key={s.value} value={s.value}>
+                                        {s.label}
+                                    </MenuItem>
                                 ))}
                             </TextField>
 
                             <TextField
+                                data-testid="agent-edit-note"
                                 fullWidth
                                 name="note"
                                 label="Not (Opsiyonel)"
@@ -224,10 +324,12 @@ export default function ComplaintListPage() {
                                 onBlur={formik.handleBlur}
                                 error={formik.touched.note && Boolean(formik.errors.note)}
                                 helperText={formik.touched.note && formik.errors.note}
+                                inputProps={{ "data-testid": "agent-edit-note-input" }}
                             />
 
                             {formik.values.toStatus === "RESOLVED" && (
                                 <TextField
+                                    data-testid="agent-edit-publicAnswer"
                                     fullWidth
                                     name="publicAnswer"
                                     label="Vatandaşa Görünecek Cevap"
@@ -236,17 +338,37 @@ export default function ComplaintListPage() {
                                     value={formik.values.publicAnswer}
                                     onChange={formik.handleChange}
                                     onBlur={formik.handleBlur}
-                                    error={formik.touched.publicAnswer && Boolean(formik.errors.publicAnswer)}
-                                    helperText={formik.touched.publicAnswer ? formik.errors.publicAnswer : "Çözüldü durumu için zorunludur"}
+                                    error={
+                                        formik.touched.publicAnswer &&
+                                        Boolean(formik.errors.publicAnswer)
+                                    }
+                                    helperText={
+                                        formik.touched.publicAnswer
+                                            ? formik.errors.publicAnswer
+                                            : "Çözüldü durumu için zorunludur"
+                                    }
                                     required
+                                    inputProps={{ "data-testid": "agent-edit-publicAnswer-input" }}
                                 />
                             )}
                         </Stack>
                     </DialogContent>
 
                     <DialogActions>
-                        <Button onClick={closeEdit} disabled={formik.isSubmitting}>Vazgeç</Button>
-                        <Button type="submit" variant="contained" disabled={formik.isSubmitting || !formik.isValid}>
+                        <Button
+                            onClick={closeEdit}
+                            disabled={formik.isSubmitting}
+                            data-testid="agent-edit-cancel"
+                        >
+                            Vazgeç
+                        </Button>
+
+                        <Button
+                            type="submit"
+                            variant="contained"
+                            disabled={formik.isSubmitting || !formik.isValid}
+                            data-testid="agent-edit-save"
+                        >
                             {formik.isSubmitting ? "Kaydediliyor..." : "Kaydet"}
                         </Button>
                     </DialogActions>

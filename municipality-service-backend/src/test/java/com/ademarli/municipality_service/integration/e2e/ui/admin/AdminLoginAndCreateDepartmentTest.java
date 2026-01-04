@@ -1,114 +1,74 @@
 package com.ademarli.municipality_service.integration.e2e.ui.admin;
 
-import io.github.bonigarcia.wdm.WebDriverManager;
-import org.junit.jupiter.api.*;
+import com.ademarli.municipality_service.integration.e2e.ui.support.BaseUiE2ETest;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.openqa.selenium.*;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.support.ui.*;
+import org.openqa.selenium.support.ui.ExpectedConditions;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class AdminLoginAndCreateDepartmentTest {
+public class AdminLoginAndCreateDepartmentTest extends BaseUiE2ETest {
 
-    private WebDriver driver;
-    private WebDriverWait wait;
-
-    private static final String UI_BASE = System.getProperty("ui.baseUrl", "http://localhost:5173");
-
-    // login
-    private static final String TID_EMAIL = "[data-testid='auth-login-emailOrPhone']";
-    private static final String TID_PASS = "[data-testid='auth-login-password']";
+    private static final String TID_EMAIL  = "[data-testid='auth-login-emailOrPhone']";
+    private static final String TID_PASS   = "[data-testid='auth-login-password']";
     private static final String TID_SUBMIT = "[data-testid='auth-login-submit']";
 
-    // nav
-    private static final String NAV_DEPTS = "[data-testid='nav-Departmanlar']";
+    private static final String NAV_DEPTS  = "[data-testid='nav-Departmanlar']";
 
-    // departments page
     private static final String BTN_NEW_DEPT = "[data-testid='admin-dept-new']";
-    private static final String INP_NAME = "#department-name-input";
-    private static final String SW_ACTIVE = ".department-active-checkbox";
-    private static final String BTN_SAVE = ".department-submit-button";
+    private static final String INP_NAME     = "#department-name-input";
+    private static final String SW_ACTIVE    = ".department-active-checkbox";
+    private static final String BTN_SAVE     = ".department-submit-button";
 
-    @BeforeAll
-    void setupClass() {
-        WebDriverManager.chromedriver().setup();
-    }
-
-    @BeforeEach
-    void setup() {
-        ChromeOptions options = new ChromeOptions();
-        boolean headless = Boolean.parseBoolean(System.getProperty("ui.headless", "true"));
-        if (headless) options.addArguments("--headless=new");
-
-        options.addArguments("--window-size=1440,900");
-        options.addArguments("--disable-gpu");
-        options.addArguments("--no-sandbox");
-
-        driver = new ChromeDriver(options);
-        wait = new WebDriverWait(driver, Duration.ofSeconds(12));
-    }
-
-    @AfterEach
-    void teardown() {
-        if (driver != null) driver.quit();
-    }
+    private static final By DEPT_CARDS  = By.cssSelector("[data-testid^='dept-card-']");
+    private static final By DIALOG_ROOT = By.cssSelector(".MuiDialog-root");
 
     private void loginAsAdmin() {
         driver.get(UI_BASE + "/auth/login");
+        waitForDocumentReady();
 
-        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(TID_EMAIL)))
-                .sendKeys("admin@local.com");
-        driver.findElement(By.cssSelector(TID_PASS)).sendKeys("Admin123!");
-        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(TID_SUBMIT))).click();
+        typeCss(TID_EMAIL, "admin@local.com");
+        typeCss(TID_PASS, "Admin123!");
+        safeClick(By.cssSelector(TID_SUBMIT));
 
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(NAV_DEPTS)));
     }
 
     private void goDepartmentsPage() {
-        pause();
-        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(NAV_DEPTS))).click();
-        pause();
+        safeClick(By.cssSelector(NAV_DEPTS));
         wait.until(ExpectedConditions.urlContains("/admin/departments"));
-        pause();
 
+        // sayfa render olsun: ya kart gelsin ya da yeni oluştur butonu gelsin
+        wait.until(ExpectedConditions.or(
+                ExpectedConditions.numberOfElementsToBeMoreThan(DEPT_CARDS, 0),
+                ExpectedConditions.elementToBeClickable(By.cssSelector(BTN_NEW_DEPT))
+        ));
     }
 
-    private void pause() {
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
+    // -------------------- TESTS --------------------
 
     @Test
     void admin_can_create_department() {
         loginAsAdmin();
         goDepartmentsPage();
 
-        String deptName = "Bilgi işlem";
+        String deptName = "Bilgi işlem " + UUID.randomUUID();
 
-        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(BTN_NEW_DEPT))).click();
+        safeClick(By.cssSelector(BTN_NEW_DEPT));
 
-        WebElement nameInput = wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(INP_NAME)));
-        nameInput.clear();
-        nameInput.sendKeys(deptName);
+        WebElement nameInput = wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(INP_NAME)));
+        clearAndType(nameInput, deptName);
 
-        WebElement activeSwitch = wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(SW_ACTIVE)));
-        if (!activeSwitch.isSelected()) activeSwitch.click();
+        setActiveSwitch(true);
 
-        // save
-        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(BTN_SAVE))).click();
+        safeClick(By.cssSelector(BTN_SAVE));
+        wait.until(ExpectedConditions.invisibilityOfElementLocated(DIALOG_ROOT));
 
-        // dialog kapandı mı? (MUI backdrop kaybolsun)
-        wait.until(ExpectedConditions.invisibilityOfElementLocated(By.cssSelector(".MuiDialog-root")));
-
-        // ✅ ASSERT: yeni departman listede göründü mü?
         WebElement created = wait.until(ExpectedConditions.visibilityOfElementLocated(
                 By.xpath("//*[normalize-space(text())='" + deptName + "']")
         ));
@@ -120,195 +80,170 @@ public class AdminLoginAndCreateDepartmentTest {
         loginAsAdmin();
         goDepartmentsPage();
 
-        //data-testid={`dept-card-${d.id}`}
+        wait.until(ExpectedConditions.numberOfElementsToBeMoreThan(DEPT_CARDS, 0));
 
-        List<WebElement> departmentCards = wait.until(driver ->
-                driver.findElements(By.cssSelector("[data-testid^='dept-card-']"
-                )));
-
-        assertFalse(departmentCards.isEmpty(), "Hiç departman bulunamadı");
-
-        String passiveId = null;
-        for (WebElement deptCard : departmentCards) {
-            //data-testid={`dept-status-${d.id}`}
-            WebElement statusisNoActive = deptCard.findElement(
-                    By.cssSelector("[data-testid^='dept-status-']")
-            );
-
-            String status = statusisNoActive.getText().trim();
-            if ("Pasif".equalsIgnoreCase(status)) {
-                // card'ın testid'sinden id çek
-                String tid = deptCard.getAttribute("data-testid"); // dept-card-12
-                passiveId = tid.replace("dept-card-", "");
-                break;
-            }
-        }
+        String passiveId = findFirstDepartmentIdByStatus("Pasif");
         Assertions.assertNotNull(passiveId, "Pasif departman bulunamadı! (Hepsi aktif olabilir)");
 
-        //data-testid={`dept-edit-${d.id}`}
+        safeClick(By.cssSelector("[data-testid='dept-edit-" + passiveId + "']"));
+        setActiveSwitch(true);
 
-        WebElement editButtonById = wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.cssSelector("[data-testid='dept-edit-" + passiveId + "']")
-        ));
-        editButtonById.click();
+        safeClick(By.cssSelector(BTN_SAVE));
+        wait.until(ExpectedConditions.invisibilityOfElementLocated(DIALOG_ROOT));
 
-        WebElement activeSwitch = wait.until(ExpectedConditions.elementToBeClickable(
-                By.cssSelector(SW_ACTIVE
-                )));
-
-        activeSwitch.click();
-
-        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(BTN_SAVE))).click();
-
-        wait.until(ExpectedConditions.invisibilityOfElementLocated(By.cssSelector(".MuiDialog-root")));
-
-        WebElement updatedDeptCard = wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.cssSelector("[data-testid='dept-card-" + passiveId + "']")
-        ));
-        WebElement statusisActive = updatedDeptCard.findElement(
-                By.cssSelector("[data-testid='dept-status-" + passiveId + "']")
+        // ✅ tekrar DOM'dan oku (stale olmasın)
+        assertEventuallyTextEquals(
+                By.cssSelector("[data-testid='dept-status-" + passiveId + "']"),
+                "Aktif",
+                Duration.ofSeconds(8)
         );
-        String updatedStatus = statusisActive.getText().trim();
-        Assertions.assertEquals("Aktif", updatedStatus, "Departman aktif yapılamadı!");
-
     }
 
+    @Test
+    void soft_delete_target_department() {
+        loginAsAdmin();
+        goDepartmentsPage();
+
+        String targetDeptName = "Fen İşleri";
+
+        wait.until(ExpectedConditions.numberOfElementsToBeMoreThan(DEPT_CARDS, 0));
+
+        String targetId = findDepartmentIdByName(targetDeptName);
+        Assertions.assertNotNull(targetId, targetDeptName + " departmanı bulunamadı!");
+
+        safeClick(By.cssSelector("[data-testid='dept-delete-" + targetId + "']"));
+
+        Alert alert = wait.until(ExpectedConditions.alertIsPresent());
+        alert.accept();
+
+        // ✅ Kritik fix: stale olmaması için element'i her seferinde yeniden bul
+        assertEventuallyTextEquals(
+                By.cssSelector("[data-testid='dept-status-" + targetId + "']"),
+                "Pasif",
+                Duration.ofSeconds(10)
+        );
+    }
 
     @Test
     void admin_make_passife_departments_departmentName_knowlage() {
-        //Bu çalışmadan önce Bilgi işlem departmanı pasif olmalı
-
         loginAsAdmin();
         goDepartmentsPage();
 
-        String targetDeptName = "Bilgi işlem";
-        //Önce kartları bul
-        List<WebElement> cards = wait.until(d ->
-                d.findElements(By.cssSelector("[data-testid^='dept-card-']")));
+        String targetDeptName = "Zabıta";
 
-        Assertions.assertFalse(cards.isEmpty(), "Hiç departman bulunamadı!");
-        String targetId = null;
-        for (WebElement card : cards) {
-//data-testid={`dept-name-${d.id}
-            WebElement findTargetCard = card.findElement(By.cssSelector("[data-testid^='dept-name-']"));
-            String name = findTargetCard.getText().trim();
-            if (name.equalsIgnoreCase(targetDeptName)) {
-                //data-testid={`dept-card-${d.id}`}
-                String tid = card.getAttribute("data-testid");
-                targetId = tid.replace("dept-card-", "");
-                break;
+        wait.until(ExpectedConditions.numberOfElementsToBeMoreThan(DEPT_CARDS, 0));
 
-            }
-        }
+        String targetId = findDepartmentIdByName(targetDeptName);
         Assertions.assertNotNull(targetId, targetDeptName + " departmanı bulunamadı!");
-        //data-testid=`dept-edit-${d.id}`
-        WebElement editButtonById = wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.cssSelector("[data-testid='dept-edit-" + targetId + "']")
-        ));
-        String before=editButtonById.getText().trim();
-        editButtonById.click();
 
+        safeClick(By.cssSelector("[data-testid='dept-edit-" + targetId + "']"));
+        setActiveSwitch(false);
 
-        WebElement activeSwitch = wait.until(ExpectedConditions.elementToBeClickable(
-                By.cssSelector(SW_ACTIVE
-                )));
+        safeClick(By.cssSelector(BTN_SAVE));
+        wait.until(ExpectedConditions.invisibilityOfElementLocated(DIALOG_ROOT));
 
-        if(before.equals("Aktif")){
-            activeSwitch.click();
-        }
-
-
-
-        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(BTN_SAVE))).click();
-        // dialog kapandı mı? (MUI backdrop kaybolsun)
-        wait.until(ExpectedConditions.invisibilityOfElementLocated(By.cssSelector(".MuiDialog-root")));
-        // ✅ ASSERT: departman pasif oldu mu?
-        WebElement updatedDeptCard = wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.cssSelector("[data-testid='dept-card-" + targetId + "']")
-        ));
-        WebElement statusisPassive = updatedDeptCard.findElement(
-                By.cssSelector("[data-testid='dept-status-" + targetId + "']")
+        assertEventuallyTextEquals(
+                By.cssSelector("[data-testid='dept-status-" + targetId + "']"),
+                "Pasif",
+                Duration.ofSeconds(8)
         );
-        String updatedStatus = statusisPassive.getText().trim();
-        Assertions.assertEquals("Pasif", updatedStatus, "Departman pasif yapılamadı!");
-
-
     }
 
-    @Test
-    void soft_delete_target_department(){
-        loginAsAdmin();
-        goDepartmentsPage();
+    // -------------------- FIND HELPERS --------------------
 
-        String targetDeptName = "Bilgi işlem";
-
-        // Kartlar (görünür olana kadar bekle)
-        List<WebElement> cards = wait.until(
-                ExpectedConditions.visibilityOfAllElementsLocatedBy(
-                        By.cssSelector("[data-testid^='dept-card-']")
-                )
-        );
-
-        Assertions.assertFalse(cards.isEmpty(), "Hiç departman bulunamadı!");
-
-        String targetId = null;
-
+    private String findDepartmentIdByName(String deptName) {
+        // DOM re-render olabilir -> her çağrıda taze liste
+        List<WebElement> cards = driver.findElements(DEPT_CARDS);
         for (WebElement card : cards) {
-            // Kart içindeki departman adı
-            WebElement nameEl = card.findElement(By.cssSelector("[data-testid^='dept-name-']"));
-            String name = nameEl.getText().trim();
-
-            if (name.equalsIgnoreCase(targetDeptName)) {
-                String tid = card.getAttribute("data-testid"); // dept-card-12
-                targetId = tid.replace("dept-card-", "");      // 12
-                break;
+            try {
+                WebElement nameEl = card.findElement(By.cssSelector("[data-testid^='dept-name-']"));
+                String name = nameEl.getText().trim();
+                if (name.equalsIgnoreCase(deptName)) {
+                    String tid = card.getAttribute("data-testid");
+                    return tid.replace("dept-card-", "");
+                }
+            } catch (StaleElementReferenceException ignored) {
+                // re-render oldu, bir sonraki çağrıda zaten tekrar bulacağız
+                return findDepartmentIdByName(deptName);
             }
         }
+        return null;
+    }
 
-        Assertions.assertNotNull(targetId, targetDeptName + " departmanı bulunamadı!");
+    private String findFirstDepartmentIdByStatus(String statusTr) {
+        List<WebElement> cards = driver.findElements(DEPT_CARDS);
+        for (WebElement card : cards) {
+            try {
+                WebElement statusEl = card.findElement(By.cssSelector("[data-testid^='dept-status-']"));
+                String status = statusEl.getText().trim();
+                if (statusTr.equalsIgnoreCase(status)) {
+                    String tid = card.getAttribute("data-testid");
+                    return tid.replace("dept-card-", "");
+                }
+            } catch (StaleElementReferenceException ignored) {
+                return findFirstDepartmentIdByStatus(statusTr);
+            }
+        }
+        return null;
+    }
 
-        WebElement deleteButton = wait.until(ExpectedConditions.elementToBeClickable(
-                By.cssSelector("[data-testid='dept-delete-" + targetId + "']")
-        ));
-        deleteButton.click();
+    // -------------------- SWITCH HELPERS --------------------
 
-        Alert alert = wait.until(ExpectedConditions.alertIsPresent());
-        pause();
-        alert.accept();
+    private void setActiveSwitch(boolean shouldBeActive) {
+        WebElement sw = wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(SW_ACTIVE)));
 
-        // ✅ ASSERT: departman listeden silindi mi?
+        boolean current = readMuiChecked(sw);
+        if (current != shouldBeActive) {
+            sw.click();
+            // sw stale olabilir, tekrar oku:
+            wait.until(d -> {
+                try {
+                    WebElement again = d.findElement(By.cssSelector(SW_ACTIVE));
+                    return readMuiChecked(again) == shouldBeActive;
+                } catch (StaleElementReferenceException e) {
+                    return false;
+                }
+            });
+        }
+    }
 
-        WebElement element= wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.cssSelector("[data-testid='dept-status-" + targetId + "']")
-        ));
-        pause();
-       // wait.until(d -> element.getText().trim().equals("Pasif"));
-pause();
-        assertEquals("Pasif", element.getText().trim());
+    private boolean readMuiChecked(WebElement swRoot) {
+        try {
+            String aria = swRoot.getAttribute("aria-checked");
+            if (aria != null) return Boolean.parseBoolean(aria);
+        } catch (Exception ignored) {}
 
+        try {
+            WebElement input = swRoot.findElement(By.cssSelector("input[type='checkbox']"));
+            return input.isSelected();
+        } catch (Exception ignored) {}
+
+        try {
+            String cls = swRoot.getAttribute("class");
+            return cls != null && cls.contains("Mui-checked");
+        } catch (Exception ignored) {}
+
+        return false;
+    }
+
+    // -------------------- ASSERT / RETRY (stale-safe) --------------------
+
+    private void assertEventuallyTextEquals(By by, String expected, Duration timeout) {
+        long end = System.currentTimeMillis() + timeout.toMillis();
+        Throwable last = null;
+
+        while (System.currentTimeMillis() < end) {
+            try {
+                WebElement el = wait.until(ExpectedConditions.presenceOfElementLocated(by));
+                String txt = el.getText().trim();
+                if (expected.equalsIgnoreCase(txt)) return;
+            } catch (StaleElementReferenceException | TimeoutException e) {
+                last = e;
+            }
+
+            try { Thread.sleep(300); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        }
+
+        fail("Beklenen text='" + expected + "' ama gelmedi. Locator=" + by + (last != null ? (" last=" + last) : ""));
     }
 }
-
-
-/*
-* [data-testid='dept-card-12']
-data-testid tam olarak dept-card-12 olanı seç
-
-✅ ^= (başlıyor)
-css
-Kodu kopyala
-[data-testid^='dept-card-']
-dept-card- ile başlayanları seç
-
-✅ $= (bitiyor)
-css
-Kodu kopyala
-[data-testid$='-12']
--12 ile bitenleri seç (dept-card-12, dept-status-12 gibi)
-
-✅ *= (içeriyor)
-css
-Kodu kopyala
-[data-testid*='card']
-
-* */

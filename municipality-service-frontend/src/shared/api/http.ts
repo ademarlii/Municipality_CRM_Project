@@ -1,8 +1,15 @@
 import axios from "axios";
 import { clearAuth, getToken } from "../auth/authStore";
 
+function resolveBaseUrl() {
+    const fromE2E = window.localStorage.getItem("E2E_API_BASE");
+    if (fromE2E) return fromE2E;
+
+    return import.meta.env.VITE_API_BASE_URL; // normal dev/prod
+}
+
 export const http = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL,
+    baseURL: resolveBaseUrl(),
 });
 
 http.interceptors.request.use((config) => {

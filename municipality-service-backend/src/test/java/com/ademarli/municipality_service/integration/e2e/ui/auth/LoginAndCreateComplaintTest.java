@@ -1,129 +1,71 @@
 package com.ademarli.municipality_service.integration.e2e.ui.auth;
 
-import io.github.bonigarcia.wdm.WebDriverManager;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import com.ademarli.municipality_service.integration.e2e.ui.support.BaseUiE2ETest;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
 
-import java.time.Duration;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class LoginAndCreateComplaintTest {
+public class LoginAndCreateComplaintTest extends BaseUiE2ETest {
 
-    private static final String UI_BASE = System.getProperty("ui.baseUrl", "http://localhost:5173");
-
-    private WebDriver driver;
-    private WebDriverWait wait;
-
-    private static final String TID_EMAIL_OR_PHONE = "[data-testid='auth-login-emailOrPhone']";
-    private static final String TID_PASSWORD       = "[data-testid='auth-login-password']";
-    private static final String TID_SUBMIT         = "[data-testid='auth-login-submit']";
-
-    private static final String CreateComplaintButton    = "[data-testid='citizen-new-complaint']";
-    private static final String SelectDepartment         = ".citizen-create-departmentId";
-    private static final String SelectKategori           = ".citizen-create-categoryId";
-    private static final String Title                    = "[data-testid='citizen-create-title']";
-    private static final String Description              = "[data-testid='citizen-create-description']";
-    private static final String CreateComplaintSubmit    = "[data-testid='citizen-create-submit']"; // ✅ düzeltildi
-    private static final String ComplaintSuccessMessage  = "[data-testid='tracking-code-display']";
-
-    @BeforeEach
-    void setup() {
-        WebDriverManager.chromedriver().setup();
-
-        ChromeOptions options = new ChromeOptions();
-        boolean headless = Boolean.parseBoolean(System.getProperty("ui.headless", "true"));
-        if (headless) options.addArguments("--headless=new");
-
-        options.addArguments("--window-size=1440,900");
-        options.addArguments("--disable-gpu");
-        options.addArguments("--no-sandbox");
-
-        driver = new ChromeDriver(options);
-        wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-    }
-
-    @AfterEach
-    void teardown() {
-        if (driver != null) driver.quit();
-    }
+    private static final String CREATE_COMPLAINT_BTN   = "[data-testid='citizen-new-complaint']";
+    private static final String SELECT_DEPARTMENT      = ".citizen-create-departmentId";
+    private static final String SELECT_KATEGORI        = ".citizen-create-categoryId";
+    private static final String TITLE                  = "[data-testid='citizen-create-title']";
+    private static final String DESCRIPTION            = "[data-testid='citizen-create-description']";
+    private static final String CREATE_SUBMIT          = "[data-testid='citizen-create-submit']";
+    private static final String TRACKING_CODE          = "[data-testid='tracking-code-display']";
 
     @Test
     void succesLogin_and_successCreateComplaint() {
-        driver.get(UI_BASE + "/auth/login");
+        registerCitizen();
 
-        // login
-        WebElement emailOrPhoneInput = wait.until(
-                ExpectedConditions.visibilityOfElementLocated(By.cssSelector(TID_EMAIL_OR_PHONE))
-        );
-        emailOrPhoneInput.sendKeys("adem@gmail.com");
-
-        WebElement passwordInput = wait.until(
-                ExpectedConditions.visibilityOfElementLocated(By.cssSelector(TID_PASSWORD))
-        );
-        passwordInput.sendKeys("123456");
-
-        WebElement submitButton = wait.until(
-                ExpectedConditions.elementToBeClickable(By.cssSelector(TID_SUBMIT))
-        );
-        submitButton.click();
-//şikayet oluşturmaya git
-        WebElement createComplaintButton = wait.until(
-                ExpectedConditions.elementToBeClickable(By.cssSelector(CreateComplaintButton))
-        );
-        createComplaintButton.click();
-
+        safeClick(By.cssSelector(CREATE_COMPLAINT_BTN));
         wait.until(ExpectedConditions.urlContains("/citizen/complaints/new"));
-//Departman ve kategori seçimi
-        selectMuiOptionByText(SelectDepartment, "Temizlik İşleri");
 
-        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(SelectKategori)));
+        selectMuiOptionByText(SELECT_DEPARTMENT, "Temizlik İşleri");
 
-        selectMuiOptionByText(SelectKategori, "Çöp Toplama");
+        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(SELECT_KATEGORI)));
+        selectMuiOptionByText(SELECT_KATEGORI, "Çöp Toplama");
 
-        WebElement titleInput = wait.until(
-                ExpectedConditions.visibilityOfElementLocated(By.cssSelector(Title))
-        );
-//Başlık ve     açıklama gir
-        titleInput.sendKeys("Test otomasyon şikayet başlığıdır bu kaydeşş");
+        typeCss(TITLE, "Test otomasyon - " + UUID.randomUUID());
+        typeCss(DESCRIPTION, "E2E açıklama test...");
 
-        WebElement descriptionInput = wait.until(
-                ExpectedConditions.visibilityOfElementLocated(By.cssSelector(Description))
-        );
-        descriptionInput.sendKeys("Test otomasyon şikayet açıklamasıdır bu kardeişşş");
+        safeClick(By.cssSelector(CREATE_SUBMIT));
 
-        WebElement createComplaintSubmitButton = wait.until(
-                ExpectedConditions.elementToBeClickable(By.cssSelector(CreateComplaintSubmit))
-        );
-        createComplaintSubmitButton.click();
-//Şikayet oluşturulduktan sonra takip kodunu doğrula
         WebElement trackingCodeDisplay = wait.until(
-                ExpectedConditions.visibilityOfElementLocated(By.cssSelector(ComplaintSuccessMessage))
+                ExpectedConditions.visibilityOfElementLocated(By.cssSelector(TRACKING_CODE))
         );
-        String trackingCodeText = trackingCodeDisplay.getText();
+        String trackingCodeText = trackingCodeDisplay.getText().trim();
 
         assertTrue(trackingCodeText.startsWith("TRK"));
     }
 
-    private void selectMuiOptionByText(String selectCss, String optionText) {
-        WebElement select = wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(selectCss)));
-        select.click();
+    private void registerCitizen() {
+        String REGISTER_EMAIL = "[data-testid='auth-register-email']";
+        String REGISTER_PHONE = "[data-testid='auth-register-phone']";
+        String REGISTER_PASSWORD = "[data-testid='auth-register-password']";
+        String REGISTER_PASSWORD_CONFIRM = "[data-testid='auth-register-confirm']";
+        String REGISTER_SUBMIT = "[data-testid='auth-register-submit']";
 
-        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("ul[role='listbox']")));
+        UUID uuid = UUID.randomUUID();
+        String email = "adembava@" + uuid;
+        String phone = randomPhoneTr11();
+        String password = "Password123!";
 
-        WebElement option = wait.until(ExpectedConditions.elementToBeClickable(
-                By.xpath("//li[@role='option' and normalize-space(.)='" + optionText + "']")
-        ));
-        option.click();
+        driver.get(UI_BASE + "/auth/register");
+        waitForDocumentReady();
 
-        wait.until(ExpectedConditions.invisibilityOfElementLocated(By.cssSelector("ul[role='listbox']")));
+        typeCss(REGISTER_EMAIL, email);
+        typeCss(REGISTER_PHONE, phone);
+        typeCss(REGISTER_PASSWORD, password);
+        typeCss(REGISTER_PASSWORD_CONFIRM, password);
+
+        safeClick(By.cssSelector(REGISTER_SUBMIT));
+        wait.until(ExpectedConditions.urlContains("citizen"));
     }
 }
