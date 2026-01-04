@@ -141,7 +141,6 @@ pipeline {
     }
   }
 
-
   post {
     always {
       junit allowEmptyResults: true, testResults: 'municipality-service-backend/**/target/surefire-reports/*.xml'
