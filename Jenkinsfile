@@ -25,115 +25,111 @@ pipeline {
 
     stage('Docker Compose Up') {
       steps {
-        bat '''
+        sh '''
+          set -euxo pipefail
           docker version
           docker compose version
-          docker compose -f "%COMPOSE_FILE%" up -d --build
-          docker compose -f "%COMPOSE_FILE%" ps
+          docker compose -f "$COMPOSE_FILE" up -d --build
+          docker compose -f "$COMPOSE_FILE" ps
         '''
       }
     }
 
     stage('Wait: DB Healthy') {
       steps {
-        powershell '''
-          $ErrorActionPreference = "Stop"
-          $name = "municipality_db"
-          Write-Host ("Waiting DB health: " + $name)
+        sh '''
+          set -euo pipefail
+          name="municipality_db"
+          echo "Waiting DB health: $name"
 
-          $ok = $false
-          for($i=1; $i -le 60; $i++){
-            try {
-              $status = docker inspect -f "{{.State.Health.Status}}" $name 2>$null
-              if($status -match "healthy"){ $ok = $true; break }
-            } catch {}
-            Start-Sleep -Seconds 2
-          }
+          ok=0
+          for i in $(seq 1 60); do
+            status="$(docker inspect -f '{{.State.Health.Status}}' "$name" 2>/dev/null || true)"
+            if echo "$status" | grep -qi healthy; then ok=1; break; fi
+            sleep 2
+          done
 
-          if(-not $ok){
-            Write-Host "DB did not become healthy. Printing logs..."
-            docker logs --tail 200 $name
-            throw "DB did not become healthy in time."
-          }
+          if [ "$ok" -ne 1 ]; then
+            echo "DB did not become healthy in time."
+            docker logs --tail 200 "$name" || true
+            exit 1
+          fi
 
-          Write-Host "DB is healthy."
+          echo "DB is healthy."
         '''
       }
     }
 
     stage('Wait: Backend Ready') {
       steps {
-        powershell '''
-          $ErrorActionPreference = "Stop"
-          $url = "$env:BACKEND_URL/actuator/health"
-          Write-Host ("Waiting Backend: " + $url)
+        sh '''
+          set -euo pipefail
+          url="$BACKEND_URL/actuator/health"
+          echo "Waiting Backend: $url"
 
-          $ok = $false
-          for($i=1; $i -le 60; $i++){
-            try {
-              $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 -Uri $url
-              if($r.StatusCode -eq 200 -and $r.Content -match "UP"){ $ok = $true; break }
-            } catch {}
-            Start-Sleep -Seconds 2
-          }
+          ok=0
+          for i in $(seq 1 60); do
+            if curl -fsS --max-time 2 "$url" | grep -q '"status":"UP"' ; then ok=1; break; fi
+            sleep 2
+          done
 
-          if(-not $ok){
-            Write-Host "Backend did not become ready. Printing logs..."
-            docker logs --tail 200 municipality_backend
-            throw "Backend did not become ready in time."
-          }
+          if [ "$ok" -ne 1 ]; then
+            echo "Backend did not become ready in time."
+            docker logs --tail 200 municipality_backend || true
+            exit 1
+          fi
 
-          Write-Host "Backend is ready."
+          echo "Backend is ready."
         '''
       }
     }
 
     stage('Wait: Frontend Ready') {
       steps {
-        powershell '''
-          $ErrorActionPreference = "Stop"
-          $url = "$env:FRONTEND_URL/"
-          Write-Host ("Waiting Frontend: " + $url)
+        sh '''
+          set -euo pipefail
+          url="$FRONTEND_URL/"
+          echo "Waiting Frontend: $url"
 
-          $ok = $false
-          for($i=1; $i -le 60; $i++){
-            try {
-              $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 -Uri $url
-              if($r.StatusCode -ge 200 -and $r.StatusCode -lt 500){ $ok = $true; break }
-            } catch {}
-            Start-Sleep -Seconds 2
-          }
+          ok=0
+          for i in $(seq 1 60); do
+            code="$(curl -s -o /dev/null -w "%{http_code}" --max-time 2 "$url" || true)"
+            if [ "$code" -ge 200 ] && [ "$code" -lt 500 ]; then ok=1; break; fi
+            sleep 2
+          done
 
-          if(-not $ok){
-            Write-Host "Frontend did not become ready. Printing logs..."
-            docker logs --tail 200 municipality_frontend
-            throw "Frontend did not become ready in time."
-          }
+          if [ "$ok" -ne 1 ]; then
+            echo "Frontend did not become ready in time."
+            docker logs --tail 200 municipality_frontend || true
+            exit 1
+          fi
 
-          Write-Host "Frontend is ready."
+          echo "Frontend is ready."
         '''
       }
     }
 
     stage('Build & UI E2E Tests (mvn verify)') {
       steps {
-        dir('municipality-service-backend') {
-          bat '''
-            if exist mvnw.cmd (
-              mvnw.cmd ^
-                -Dui.baseUrl=%UI_BASE_URL% ^
-                -Dui.headless=%UI_HEADLESS% ^
-                -De2e.apiBase=%E2E_API_BASE% ^
-                clean verify
-            ) else (
-              mvn ^
-                -Dui.baseUrl=%UI_BASE_URL% ^
-                -Dui.headless=%UI_HEADLESS% ^
-                -De2e.apiBase=%E2E_API_BASE% ^
-                clean verify
-            )
-          '''
-        }
+        sh '''
+          set -euxo pipefail
+          cd municipality-service-backend
+
+          if [ -f "./mvnw" ]; then
+            chmod +x ./mvnw
+            ./mvnw \
+              -Dui.baseUrl="$UI_BASE_URL" \
+              -Dui.headless="$UI_HEADLESS" \
+              -De2e.apiBase="$E2E_API_BASE" \
+              clean verify
+          else
+            mvn \
+              -Dui.baseUrl="$UI_BASE_URL" \
+              -Dui.headless="$UI_HEADLESS" \
+              -De2e.apiBase="$E2E_API_BASE" \
+              clean verify
+          fi
+        '''
       }
     }
 
@@ -145,21 +141,22 @@ pipeline {
     }
   }
 
+
   post {
     always {
       junit allowEmptyResults: true, testResults: 'municipality-service-backend/**/target/surefire-reports/*.xml'
       junit allowEmptyResults: true, testResults: 'municipality-service-backend/**/target/failsafe-reports/*.xml'
 
-      // Debug için: ps + kısa log
-      bat '''
-        docker compose -f "%COMPOSE_FILE%" ps
-        docker compose -f "%COMPOSE_FILE%" logs --no-color --tail 200
-      '''
-
-      // Her zaman kapat
-      bat '''
-        docker compose -f "%COMPOSE_FILE%" down -v
+      sh '''
+        set +e
+        docker compose -f "$COMPOSE_FILE" ps
+        docker compose -f "$COMPOSE_FILE" logs --no-color --tail 200
+        docker compose -f "$COMPOSE_FILE" down -v
+        true
       '''
     }
   }
 }
+
+
+///
