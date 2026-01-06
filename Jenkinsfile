@@ -251,6 +251,26 @@ pipeline {
         }
       }
     }
+    stage('Install Chromium (for UI E2E)') {
+      steps {
+        sh '''
+          set -eux
+          # Jenkins container root değilse bu stage çalışmaz.
+          # Çalışıyorsa:
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            chromium \
+            libnss3 libglib2.0-0 libgbm1 libasound2 \
+            libx11-6 libx11-xcb1 libxcomposite1 libxdamage1 libxext6 \
+            libxfixes3 libxrandr2 libxrender1 libxtst6 \
+            fonts-liberation ca-certificates
+
+          chromium --version || true
+          which chromium || true
+        '''
+      }
+    }
+
 
     stage('6.1- E2E Scenario 1') {
       steps {
