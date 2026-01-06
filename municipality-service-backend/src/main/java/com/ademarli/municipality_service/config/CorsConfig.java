@@ -35,7 +35,8 @@ public class CorsConfig {
                 "http://localhost:5179",
                 "http://127.0.0.1:5179",
                 "http://localhost:5180",
-                "http://127.0.0.1:5180"
+                "http://127.0.0.1:5180",
+                "http://host.docker.internal:5173"
         ));
 
         config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
