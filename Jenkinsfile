@@ -145,12 +145,25 @@ pipeline {
       steps {
         sh '''
           set -eux
-          url="$BACKEND_URL/actuator/health"
-          echo "Waiting Backend: $url"
+
+          # backend container id
+          cid="$($DC -f "$COMPOSE_FILE" ps -q backend)"
+          if [ -z "$cid" ]; then
+            echo "backend container not found"
+            $DC -f "$COMPOSE_FILE" ps || true
+            exit 1
+          fi
+
+          # compose network name (e.g. adem_default)
+          net="$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' "$cid")"
+          echo "backend cid=$cid net=$net"
 
           ok="false"
-          for i in $(seq 1 60); do
-            if curl -fsS --max-time 2 "$url" | grep -q '"status":"UP"'; then
+          for i in $(seq 1 90); do
+            # probe from same docker network, using service DNS name: backend
+            if docker run --rm --network "$net" curlimages/curl:8.5.0 \
+                 -fsS --max-time 2 http://backend:6969/actuator/health \
+               | grep -q '"status":"UP"'; then
               ok="true"
               break
             fi
@@ -159,7 +172,7 @@ pipeline {
 
           if [ "$ok" != "true" ]; then
             echo "Backend did not become ready."
-            docker logs municipality_backend || true
+            $DC -f "$COMPOSE_FILE" logs --no-color backend || true
             exit 1
           fi
 
@@ -172,13 +185,15 @@ pipeline {
       steps {
         sh '''
           set -eux
-          url="$FRONTEND_URL"
-          echo "Waiting Frontend: $url"
+
+          cid="$($DC -f "$COMPOSE_FILE" ps -q frontend)"
+          net="$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' "$cid")"
 
           ok="false"
-          for i in $(seq 1 60); do
-            code="$(curl -s -o /dev/null -w "%{http_code}" --max-time 2 "$url" || true)"
-            if [ "$code" != "" ] && [ "$code" -ge 200 ] && [ "$code" -lt 500 ]; then
+          for i in $(seq 1 90); do
+            code="$(docker run --rm --network "$net" curlimages/curl:8.5.0 \
+                    -s -o /dev/null -w "%{http_code}" --max-time 2 http://frontend:5173/ || true)"
+            if [ -n "$code" ] && [ "$code" -ge 200 ] && [ "$code" -lt 500 ]; then
               ok="true"
               break
             fi
@@ -187,7 +202,7 @@ pipeline {
 
           if [ "$ok" != "true" ]; then
             echo "Frontend did not become ready."
-            docker logs municipality_frontend || true
+            $DC -f "$COMPOSE_FILE" logs --no-color frontend || true
             exit 1
           fi
 
