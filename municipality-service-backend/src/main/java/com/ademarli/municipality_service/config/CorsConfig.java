@@ -18,7 +18,6 @@ public class CorsConfig {
     public FilterRegistrationBean<CorsFilter> corsFilterRegistrationBean() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // localhost + 127.0.0.1 ikisini de ekle (çok işe yarıyor)
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
