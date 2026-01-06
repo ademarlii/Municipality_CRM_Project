@@ -7,12 +7,8 @@ pipeline {
 
   environment {
     COMPOSE_FILE = "docker-compose.yml"
-
-    // Host (agent) üzerinden erişim için (port publish varsa)
     BACKEND_URL  = "http://localhost:6969"
     FRONTEND_URL = "http://localhost:5173"
-
-    // Varsayılan UI (agent host). Eğer agent container ise otomatik "http://frontend:5173"e düşeceğiz.
     UI_BASE_URL  = "http://localhost:5173"
     UI_HEADLESS  = "true"
   }
@@ -119,7 +115,7 @@ pipeline {
           echo "Waiting DB health (service=db)"
 
           ok="false"
-          for i in $(seq 1 90); do
+          for i in $(seq 1 60); do
             cid="$($DC -f "$COMPOSE_FILE" ps -q db || true)"
             if [ -n "$cid" ]; then
               status="$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || true)"
@@ -128,8 +124,6 @@ pipeline {
                 ok="true"
                 break
               fi
-            else
-              echo "db container not found yet"
             fi
             sleep 2
           done
@@ -146,30 +140,27 @@ pipeline {
       }
     }
 
+
     stage('Wait: Backend Ready') {
       steps {
         sh '''
           set -eux
 
-          cid="$($DC -f "$COMPOSE_FILE" ps -q backend || true)"
+          # backend container id
+          cid="$($DC -f "$COMPOSE_FILE" ps -q backend)"
           if [ -z "$cid" ]; then
             echo "backend container not found"
             $DC -f "$COMPOSE_FILE" ps || true
             exit 1
           fi
 
-          # network name (first one)
-          net="$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' "$cid" | head -n 1)"
-          if [ -z "$net" ]; then
-            echo "Could not determine backend network"
-            docker inspect "$cid" || true
-            exit 1
-          fi
-
+          # compose network name (e.g. adem_default)
+          net="$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' "$cid")"
           echo "backend cid=$cid net=$net"
 
           ok="false"
-          for i in $(seq 1 120); do
+          for i in $(seq 1 90); do
+            # probe from same docker network, using service DNS name: backend
             if docker run --rm --network "$net" curlimages/curl:8.5.0 \
                  -fsS --max-time 2 http://backend:6969/actuator/health \
                | grep -q '"status":"UP"'; then
@@ -195,24 +186,11 @@ pipeline {
         sh '''
           set -eux
 
-          cid="$($DC -f "$COMPOSE_FILE" ps -q frontend || true)"
-          if [ -z "$cid" ]; then
-            echo "frontend container not found"
-            $DC -f "$COMPOSE_FILE" ps || true
-            exit 1
-          fi
-
-          net="$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' "$cid" | head -n 1)"
-          if [ -z "$net" ]; then
-            echo "Could not determine frontend network"
-            docker inspect "$cid" || true
-            exit 1
-          fi
-
-          echo "frontend cid=$cid net=$net"
+          cid="$($DC -f "$COMPOSE_FILE" ps -q frontend)"
+          net="$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' "$cid")"
 
           ok="false"
-          for i in $(seq 1 120); do
+          for i in $(seq 1 90); do
             code="$(docker run --rm --network "$net" curlimages/curl:8.5.0 \
                     -s -o /dev/null -w "%{http_code}" --max-time 2 http://frontend:5173/ || true)"
             if [ -n "$code" ] && [ "$code" -ge 200 ] && [ "$code" -lt 500 ]; then
@@ -230,25 +208,6 @@ pipeline {
 
           echo "✅ Frontend is ready."
         '''
-      }
-    }
-
-    stage('Resolve UI Base URL (host vs docker network)') {
-      steps {
-        script {
-          // Agent host'tan localhost:5173 erişebiliyorsan onu kullan.
-          // Erişemiyorsan (agent container vs.), E2E'yi docker network içinde koşturacağız ve UI_BASE_URL=frontend olacak.
-          def ok = sh(script: 'curl -sS --max-time 1 http://localhost:5173/ >/dev/null 2>&1; echo $?', returnStdout: true).trim()
-          if (ok == '0') {
-            env.UI_BASE_URL = "http://localhost:5173"
-            env.E2E_MODE = "host"
-            echo "✅ UI_BASE_URL host üzerinden kullanılacak: ${env.UI_BASE_URL}"
-          } else {
-            env.UI_BASE_URL = "http://frontend:5173"
-            env.E2E_MODE = "docker"
-            echo "✅ UI_BASE_URL docker network üzerinden kullanılacak: ${env.UI_BASE_URL} (E2E_MODE=docker)"
-          }
-        }
       }
     }
     stage('Install Chromium (for UI E2E)') {
@@ -272,132 +231,75 @@ pipeline {
     }
 
 
+    // 6. aşama: çalışan sistem üzerinde 3 senaryo
     stage('6.1- E2E Scenario 1') {
       steps {
-        script {
-          if (env.E2E_MODE == "docker") {
-            sh '''
-              set -eux
-              cid="$($DC -f "$COMPOSE_FILE" ps -q backend || true)"
-              net="$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' "$cid" | head -n 1)"
-
-              # Maven'ı aynı network içinde çalıştır (frontend DNS çözülsün)
-              docker run --rm --network "$net" \
-                -v "$PWD":/workspace -w /workspace/municipality-service-backend \
-                maven:3.9.9-eclipse-temurin-21 \
-                bash -lc '
-                  set -eux
-                  if [ -f "./mvnw" ]; then chmod +x ./mvnw; MVN=./mvnw; else MVN=mvn; fi
-                  $MVN -Pe2e -Dui.baseUrl="'"$UI_BASE_URL"'" -Dui.headless="'"$UI_HEADLESS"'" -Dtest="**/integration/e2e/ui/admin/**/*E2EIT.java" test
-                '
-            '''
-          } else {
-            dir('municipality-service-backend') {
-              sh '''
-                set -eux
-                if [ -f "./mvnw" ]; then
-                  chmod +x ./mvnw
-                  ./mvnw -Pe2e \
-                    -Dui.baseUrl="$UI_BASE_URL" \
-                    -Dui.headless="$UI_HEADLESS" \
-                    -Dtest="**/integration/e2e/ui/admin/**/*E2EIT.java" \
-                    test
-                else
-                  mvn -Pe2e \
-                    -Dui.baseUrl="$UI_BASE_URL" \
-                    -Dui.headless="$UI_HEADLESS" \
-                    -Dtest="**/integration/e2e/ui/admin/**/*E2EIT.java" \
-                    test
-                fi
-              '''
-            }
-          }
+        dir('municipality-service-backend') {
+          sh '''
+            set -eux
+            if [ -f "./mvnw" ]; then
+              chmod +x ./mvnw
+              ./mvnw -Pe2e \
+                -Dui.baseUrl="$UI_BASE_URL" \
+                -Dui.headless="$UI_HEADLESS" \
+                -Dtest="**/integration/e2e/ui/admin/**/*E2EIT.java" \
+                test
+            else
+              mvn -Pe2e \
+                -Dui.baseUrl="$UI_BASE_URL" \
+                -Dui.headless="$UI_HEADLESS" \
+                -Dtest="**/integration/e2e/ui/admin/**/*E2EIT.java" \
+                test
+            fi
+          '''
         }
       }
     }
 
     stage('6.2- E2E Scenario 2') {
       steps {
-        script {
-          if (env.E2E_MODE == "docker") {
-            sh '''
-              set -eux
-              cid="$($DC -f "$COMPOSE_FILE" ps -q backend || true)"
-              net="$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' "$cid" | head -n 1)"
-
-              docker run --rm --network "$net" \
-                -v "$PWD":/workspace -w /workspace/municipality-service-backend \
-                maven:3.9.9-eclipse-temurin-21 \
-                bash -lc '
-                  set -eux
-                  if [ -f "./mvnw" ]; then chmod +x ./mvnw; MVN=./mvnw; else MVN=mvn; fi
-                  $MVN -Pe2e -Dui.baseUrl="'"$UI_BASE_URL"'" -Dui.headless="'"$UI_HEADLESS"'" -Dtest="**/integration/e2e/ui/agent/**/*E2EIT.java" test
-                '
-            '''
-          } else {
-            dir('municipality-service-backend') {
-              sh '''
-                set -eux
-                if [ -f "./mvnw" ]; then
-                  chmod +x ./mvnw
-                  ./mvnw -Pe2e \
-                    -Dui.baseUrl="$UI_BASE_URL" \
-                    -Dui.headless="$UI_HEADLESS" \
-                    -Dtest="**/integration/e2e/ui/agent/**/*E2EIT.java" \
-                    test
-                else
-                  mvn -Pe2e \
-                    -Dui.baseUrl="$UI_BASE_URL" \
-                    -Dui.headless="$UI_HEADLESS" \
-                    -Dtest="**/integration/e2e/ui/agent/**/*E2EIT.java" \
-                    test
-                fi
-              '''
-            }
-          }
+        dir('municipality-service-backend') {
+          sh '''
+            set -eux
+            if [ -f "./mvnw" ]; then
+              chmod +x ./mvnw
+              ./mvnw -Pe2e \
+                -Dui.baseUrl="$UI_BASE_URL" \
+                -Dui.headless="$UI_HEADLESS" \
+                -Dtest="**/integration/e2e/ui/agent/**/*E2EIT.java" \
+                test
+            else
+              mvn -Pe2e \
+                -Dui.baseUrl="$UI_BASE_URL" \
+                -Dui.headless="$UI_HEADLESS" \
+                -Dtest="**/integration/e2e/ui/agent/**/*E2EIT.java" \
+                test
+            fi
+          '''
         }
       }
     }
 
     stage('6.3- E2E Scenario 3') {
       steps {
-        script {
-          if (env.E2E_MODE == "docker") {
-            sh '''
-              set -eux
-              cid="$($DC -f "$COMPOSE_FILE" ps -q backend || true)"
-              net="$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' "$cid" | head -n 1)"
-
-              docker run --rm --network "$net" \
-                -v "$PWD":/workspace -w /workspace/municipality-service-backend \
-                maven:3.9.9-eclipse-temurin-21 \
-                bash -lc '
-                  set -eux
-                  if [ -f "./mvnw" ]; then chmod +x ./mvnw; MVN=./mvnw; else MVN=mvn; fi
-                  $MVN -Pe2e -Dui.baseUrl="'"$UI_BASE_URL"'" -Dui.headless="'"$UI_HEADLESS"'" -Dtest="**/integration/e2e/ui/auth/**/*E2EIT.java" test
-                '
-            '''
-          } else {
-            dir('municipality-service-backend') {
-              sh '''
-                set -eux
-                if [ -f "./mvnw" ]; then
-                  chmod +x ./mvnw
-                  ./mvnw -Pe2e \
-                    -Dui.baseUrl="$UI_BASE_URL" \
-                    -Dui.headless="$UI_HEADLESS" \
-                    -Dtest="**/integration/e2e/ui/auth/**/*E2EIT.java" \
-                    test
-                else
-                  mvn -Pe2e \
-                    -Dui.baseUrl="$UI_BASE_URL" \
-                    -Dui.headless="$UI_HEADLESS" \
-                    -Dtest="**/integration/e2e/ui/auth/**/*E2EIT.java" \
-                    test
-                fi
-              '''
-            }
-          }
+        dir('municipality-service-backend') {
+          sh '''
+            set -eux
+            if [ -f "./mvnw" ]; then
+              chmod +x ./mvnw
+              ./mvnw -Pe2e \
+                -Dui.baseUrl="$UI_BASE_URL" \
+                -Dui.headless="$UI_HEADLESS" \
+                -Dtest="**/integration/e2e/ui/auth/**/*E2EIT.java" \
+                test
+            else
+              mvn -Pe2e \
+                -Dui.baseUrl="$UI_BASE_URL" \
+                -Dui.headless="$UI_HEADLESS" \
+                -Dtest="**/integration/e2e/ui/auth/**/*E2EIT.java" \
+                test
+            fi
+          '''
         }
       }
     }
@@ -413,7 +315,9 @@ pipeline {
 
   post {
     always {
+      // Surefire (unit/slice)
       junit allowEmptyResults: true, testResults: 'municipality-service-backend/**/target/surefire-reports/*.xml'
+      // Failsafe (integration)
       junit allowEmptyResults: true, testResults: 'municipality-service-backend/**/target/failsafe-reports/*.xml'
 
       sh '''
