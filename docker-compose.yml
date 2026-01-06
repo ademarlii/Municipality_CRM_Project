@@ -5,15 +5,16 @@ services:
       POSTGRES_DB: municipality_db
       POSTGRES_USER: municipality_user
       POSTGRES_PASSWORD: municipality_pass
+    # CI'da port çakışıyorsa ya kaldır ya da 5433:5432 yap
     ports:
-      - "5432:5432"   # CI'da çakışırsa 5433:5432 yap veya tamamen kaldır
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U municipality_user -d municipality_db" ]
+      test: ["CMD-SHELL", "pg_isready -U municipality_user -d municipality_db"]
       interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 30
       start_period: 30s
 
   backend:
@@ -37,12 +38,12 @@ services:
     ports:
       - "6969:6969"
     healthcheck:
-      # backend container içinden kendine ping atar
-      test: [ "CMD-SHELL", "wget -qO- http://localhost:6969/actuator/health | grep -q '\"status\":\"UP\"'" ]
+      # /actuator/health permitAll olmalı (aşağıda SecurityConfig'i düzelttim)
+      test: ["CMD-SHELL", "curl -fsS http://localhost:6969/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 5s
       timeout: 5s
-      retries: 30
-      start_period: 30s
+      retries: 40
+      start_period: 120s
 
   frontend:
     build:
@@ -52,17 +53,15 @@ services:
       backend:
         condition: service_healthy
     environment:
-      # container-to-container doğru adres:
       VITE_API_BASE_URL: "http://backend:6969"
     ports:
       - "5173:5173"
     healthcheck:
-      # frontend container içinden kendine ping
-      test: [ "CMD-SHELL", "wget -qO- http://localhost:5173 >/dev/null 2>&1" ]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5173/ > /dev/null"]
       interval: 5s
       timeout: 5s
-      retries: 30
-      start_period: 30s
+      retries: 40
+      start_period: 60s
 
   pgadmin:
     image: dpage/pgadmin4:8

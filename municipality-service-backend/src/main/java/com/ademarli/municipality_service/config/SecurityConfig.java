@@ -56,10 +56,18 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // ✅ Actuator health'i aç (docker healthcheck burayı vuracak)
+                        .requestMatchers("/actuator/health/**").permitAll()
+
+                        // ✅ Swagger + auth/public
                         .requestMatchers("/api/auth/**", "/api/public/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+
+                        // рол bazlı alanlar
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/citizen/**").hasRole("CITIZEN")
-                        .requestMatchers("/api/agent/**").hasAnyRole("ADMIN","AGENT")
+                        .requestMatchers("/api/agent/**").hasAnyRole("ADMIN", "AGENT")
+
                         .anyRequest().authenticated()
                 );
 
@@ -83,7 +91,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
+
+        // UI tarayıcıdan geldiği için localhost yeterli.
+        // (İstersen prod domainini de buraya eklersin)
         config.setAllowedOrigins(List.of("http://localhost:5173"));
+
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
