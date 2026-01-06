@@ -115,22 +115,26 @@ pipeline {
       steps {
         sh '''
           set -eux
-          name="municipality_db"
-          echo "Waiting DB health: $name"
+          echo "Waiting DB health (service=db)"
 
           ok="false"
           for i in $(seq 1 60); do
-            status="$(docker inspect -f '{{.State.Health.Status}}' "$name" 2>/dev/null || true)"
-            if [ "$status" = "healthy" ]; then
-              ok="true"
-              break
+            cid="$($DC -f "$COMPOSE_FILE" ps -q db || true)"
+            if [ -n "$cid" ]; then
+              status="$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || true)"
+              echo "db status=$status cid=$cid"
+              if [ "$status" = "healthy" ]; then
+                ok="true"
+                break
+              fi
             fi
             sleep 2
           done
 
           if [ "$ok" != "true" ]; then
             echo "DB did not become healthy."
-            docker logs "$name" || true
+            $DC -f "$COMPOSE_FILE" ps || true
+            $DC -f "$COMPOSE_FILE" logs --no-color db || true
             exit 1
           fi
 
@@ -138,6 +142,7 @@ pipeline {
         '''
       }
     }
+
 
     stage('Wait: Backend Ready') {
       steps {
