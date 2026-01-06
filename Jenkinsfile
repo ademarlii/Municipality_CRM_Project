@@ -312,34 +312,29 @@ pipeline {
       }
     }
 
-    // ✅ 7- Coverage Report (Maven JaCoCo merge + report)
-    stage('7- Coverage Report (JaCoCo)') {
-      steps {
-        dir('municipality-service-backend') {
-          echo 'Generating JaCoCo merged coverage report...'
-
-          // Coverage raporu fail olursa build'i kırma (isteğine göre)
-          catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-            sh '''
-              set -eux
-              if [ -f "./mvnw" ]; then
-                chmod +x ./mvnw
-                # test tekrar koşmasın diye:
-                ./mvnw -DskipTests=true jacoco:merge jacoco:report
-              else
-                mvn -DskipTests=true jacoco:merge jacoco:report
-              fi
-            '''
-          }
-        }
-      }
-      post {
-        always {
-          echo 'Archiving JaCoCo HTML report as Jenkins artifacts (no HTML Publisher needed).'
-          archiveArtifacts allowEmptyArchive: true, artifacts: 'municipality-service-backend/target/site/jacoco-merged/**'
-        }
-      }
-    }
+   stage('7- Coverage Report (JaCoCo)') {
+     steps {
+       dir('municipality-service-backend') {
+         echo 'Generating JaCoCo merged coverage report (via verify)...'
+         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+           sh '''
+             set -eux
+             if [ -f "./mvnw" ]; then
+               chmod +x ./mvnw
+               ./mvnw -DskipTests=true verify
+             else
+               mvn -DskipTests=true verify
+             fi
+           '''
+         }
+       }
+     }
+     post {
+       always {
+         archiveArtifacts allowEmptyArchive: true, artifacts: 'municipality-service-backend/target/site/jacoco-merged/**'
+       }
+     }
+   }
 
     stage('Fake Deploy') {
       when { expression { currentBuild.currentResult == 'SUCCESS' } }
