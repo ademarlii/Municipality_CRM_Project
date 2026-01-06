@@ -315,20 +315,24 @@ pipeline {
    stage('7- Coverage Report (JaCoCo)') {
      steps {
        dir('municipality-service-backend') {
-         echo 'Generating JaCoCo merged coverage report (via verify)...'
-         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-           sh '''
-             set -eux
-             if [ -f "./mvnw" ]; then
-               chmod +x ./mvnw
-               ./mvnw -DskipTests=true verify
-             else
-               mvn -DskipTests=true verify
-             fi
-           '''
-         }
+         sh '''
+           set -eux
+           if [ -f "./mvnw" ]; then
+             chmod +x ./mvnw
+             ./mvnw -DskipTests=true verify
+           else
+             mvn -DskipTests=true verify
+           fi
+         '''
        }
      }
+     post {
+       always {
+         archiveArtifacts allowEmptyArchive: true, artifacts: 'municipality-service-backend/target/site/jacoco/**'
+       }
+     }
+   }
+
      post {
        always {
          archiveArtifacts allowEmptyArchive: true, artifacts: 'municipality-service-backend/target/site/jacoco-merged/**'
