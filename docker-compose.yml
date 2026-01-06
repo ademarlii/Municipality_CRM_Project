@@ -53,7 +53,7 @@ services:
       backend:
         condition: service_healthy
     environment:
-      VITE_API_BASE_URL: "http://backend:6969"
+      VITE_API_BASE_URL: http://host.docker.internal:6969
     ports:
       - "5173:5173"
     healthcheck:

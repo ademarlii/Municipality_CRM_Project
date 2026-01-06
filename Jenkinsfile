@@ -243,6 +243,13 @@ pipeline {
         '''
       }
     }
+    set -eux
+    echo "UI check:"
+    curl -I --max-time 5 http://host.docker.internal:5173/auth/login | head -n 1
+
+    echo "Backend check:"
+    curl -fsS --max-time 5 http://host.docker.internal:6969/actuator/health
+
 
 
 
