@@ -8,7 +8,7 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 
 import java.util.UUID;
 
-public class RegisterUiE2ETest extends BaseUiE2ETest {
+public class RegisterCitizenE2EIT extends BaseUiE2ETest {
 
     private static final String REGISTER_EMAIL            = "[data-testid='auth-register-email']";
     private static final String REGISTER_PHONE            = "[data-testid='auth-register-phone']";

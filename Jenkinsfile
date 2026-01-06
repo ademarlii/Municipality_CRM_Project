@@ -17,14 +17,12 @@ pipeline {
   }
 
   triggers {
-    // Dakikada bir kontrol (polling)
-    // Not: GitHub push trigger zaten ayrıca çalıştırır (Job ayarından da açabilirsin)
     pollSCM('* * * * *')
   }
 
   stages {
 
-    stage('Checkout') {
+    stage('1- Checkout') {
       steps {
         checkout scm
       }
@@ -53,7 +51,55 @@ pipeline {
       }
     }
 
-    stage('Docker Compose Up') {
+    stage('2- Build (no tests)') {
+      steps {
+        dir('municipality-service-backend') {
+          sh '''
+            set -eux
+            if [ -f "./mvnw" ]; then
+              chmod +x ./mvnw
+              ./mvnw -DskipTests clean package
+            else
+              mvn -DskipTests clean package
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('3- Unit + Slice Tests (Surefire)') {
+      steps {
+        dir('municipality-service-backend') {
+          sh '''
+            set -eux
+            if [ -f "./mvnw" ]; then
+              chmod +x ./mvnw
+              ./mvnw test
+            else
+              mvn test
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('4- Integration Tests (Failsafe *IT)') {
+      steps {
+        dir('municipality-service-backend') {
+          sh '''
+            set -eux
+            if [ -f "./mvnw" ]; then
+              chmod +x ./mvnw
+              ./mvnw -DskipTests verify
+            else
+              mvn -DskipTests verify
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('5- Docker Compose Up (System Running)') {
       steps {
         sh '''
           set -eux
@@ -148,22 +194,73 @@ pipeline {
       }
     }
 
-    stage('Build & UI E2E Tests (mvn verify)') {
+    // 6. aşama: çalışan sistem üzerinde 3 senaryo
+    stage('6.1- E2E Scenario 1') {
       steps {
         dir('municipality-service-backend') {
           sh '''
             set -eux
             if [ -f "./mvnw" ]; then
               chmod +x ./mvnw
-              ./mvnw \
+              ./mvnw -Pe2e \
                 -Dui.baseUrl="$UI_BASE_URL" \
                 -Dui.headless="$UI_HEADLESS" \
-                clean verify
+                -Dtest="**/integration/e2e/ui/admin/**/*E2EIT.java" \
+                test
             else
-              mvn \
+              mvn -Pe2e \
                 -Dui.baseUrl="$UI_BASE_URL" \
                 -Dui.headless="$UI_HEADLESS" \
-                clean verify
+                -Dtest="**/integration/e2e/ui/admin/**/*E2EIT.java" \
+                test
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('6.2- E2E Scenario 2') {
+      steps {
+        dir('municipality-service-backend') {
+          sh '''
+            set -eux
+            if [ -f "./mvnw" ]; then
+              chmod +x ./mvnw
+              ./mvnw -Pe2e \
+                -Dui.baseUrl="$UI_BASE_URL" \
+                -Dui.headless="$UI_HEADLESS" \
+                -Dtest="**/integration/e2e/ui/agent/**/*E2EIT.java" \
+                test
+            else
+              mvn -Pe2e \
+                -Dui.baseUrl="$UI_BASE_URL" \
+                -Dui.headless="$UI_HEADLESS" \
+                -Dtest="**/integration/e2e/ui/agent/**/*E2EIT.java" \
+                test
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('6.3- E2E Scenario 3') {
+      steps {
+        dir('municipality-service-backend') {
+          sh '''
+            set -eux
+            if [ -f "./mvnw" ]; then
+              chmod +x ./mvnw
+              ./mvnw -Pe2e \
+                -Dui.baseUrl="$UI_BASE_URL" \
+                -Dui.headless="$UI_HEADLESS" \
+                -Dtest="**/integration/e2e/ui/auth/**/*E2EIT.java" \
+                test
+            else
+              mvn -Pe2e \
+                -Dui.baseUrl="$UI_BASE_URL" \
+                -Dui.headless="$UI_HEADLESS" \
+                -Dtest="**/integration/e2e/ui/auth/**/*E2EIT.java" \
+                test
             fi
           '''
         }
@@ -179,11 +276,11 @@ pipeline {
     }
   }
 
-
-
   post {
     always {
+      // Surefire (unit/slice)
       junit allowEmptyResults: true, testResults: 'municipality-service-backend/**/target/surefire-reports/*.xml'
+      // Failsafe (integration)
       junit allowEmptyResults: true, testResults: 'municipality-service-backend/**/target/failsafe-reports/*.xml'
 
       sh '''

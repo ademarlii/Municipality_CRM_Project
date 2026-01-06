@@ -10,7 +10,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class CitizenAgentComplaintFlowTest extends BaseUiE2ETest {
+public class CitizenAgentComplaintFlowE2EIT extends BaseUiE2ETest {
 
     // REGISTER
     private static final String REG_EMAIL = "[data-testid='auth-register-email']";

@@ -6,7 +6,7 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 
-public class RegisterErrorTest extends BaseUiE2ETest {
+public class RegisterErrorE2EIT extends BaseUiE2ETest {
 
     private static final String REGISTER_EMAIL            = "[data-testid='auth-register-email']";
     private static final String REGISTER_PHONE            = "[data-testid='auth-register-phone']";

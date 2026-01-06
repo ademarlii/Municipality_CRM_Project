@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: municipality_user
       POSTGRES_PASSWORD: municipality_pass
     ports:
-      - "5432:5432"
+      - "5432:5432"   # CI'da çakışırsa 5433:5432 yap veya tamamen kaldır
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -36,17 +36,33 @@ services:
       SERVER_PORT: "6969"
     ports:
       - "6969:6969"
+    healthcheck:
+      # backend container içinden kendine ping atar
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:6969/actuator/health | grep -q '\"status\":\"UP\"'" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
 
   frontend:
     build:
       context: ./municipality-service-frontend
       dockerfile: Dockerfile
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     environment:
-      VITE_API_BASE_URL: "http://localhost:6969"
+      # container-to-container doğru adres:
+      VITE_API_BASE_URL: "http://backend:6969"
     ports:
       - "5173:5173"
+    healthcheck:
+      # frontend container içinden kendine ping
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:5173 >/dev/null 2>&1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
 
   pgadmin:
     image: dpage/pgadmin4:8

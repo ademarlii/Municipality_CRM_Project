@@ -6,7 +6,7 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 
-public class AdminLoginErrorTest extends BaseUiE2ETest {
+public class AdminLoginErrorE2EIT extends BaseUiE2ETest {
 
     private static final String TID_EMAIL_OR_PHONE = "[data-testid='auth-login-emailOrPhone']";
     private static final String TID_PASSWORD       = "[data-testid='auth-login-password']";

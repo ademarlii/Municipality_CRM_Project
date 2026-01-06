@@ -10,7 +10,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class LoginAndCreateComplaintTest extends BaseUiE2ETest {
+public class LoginAndCreateComplaintE2EIT extends BaseUiE2ETest {
 
     private static final String CREATE_COMPLAINT_BTN   = "[data-testid='citizen-new-complaint']";
     private static final String SELECT_DEPARTMENT      = ".citizen-create-departmentId";

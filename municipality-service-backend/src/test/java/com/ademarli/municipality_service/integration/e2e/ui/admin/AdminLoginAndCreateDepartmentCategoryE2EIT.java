@@ -12,7 +12,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Slf4j
-public class AdminLoginAndCreateDepartmentCategoryTest extends BaseUiE2ETest {
+public class AdminLoginAndCreateDepartmentCategoryE2EIT extends BaseUiE2ETest {
 
     private static final String TID_EMAIL_OR_PHONE = "[data-testid='auth-login-emailOrPhone']";
     private static final String TID_PASSWORD       = "[data-testid='auth-login-password']";

@@ -11,7 +11,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class CitizenLoginAndReadNotificationTest extends BaseUiE2ETest {
+public class CitizenLoginAndReadNotificationE2EIT extends BaseUiE2ETest {
 
     // REGISTER
     private static final String REG_EMAIL = "[data-testid='auth-register-email']";

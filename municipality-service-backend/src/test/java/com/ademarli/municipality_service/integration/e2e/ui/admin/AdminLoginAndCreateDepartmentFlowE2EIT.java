@@ -10,7 +10,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class AdminLoginAndCreateDepartmentFlowTest extends BaseUiE2ETest {
+public class AdminLoginAndCreateDepartmentFlowE2EIT extends BaseUiE2ETest {
 
     private static final String TID_EMAIL  = "[data-testid='auth-login-emailOrPhone']";
     private static final String TID_PASS   = "[data-testid='auth-login-password']";
