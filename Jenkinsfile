@@ -215,6 +215,29 @@ pipeline {
         '''
       }
     }
+    stage('Attach Jenkins to Compose Network') {
+      steps {
+        sh '''
+          set -eux
+          # backend cid üzerinden compose network'ü bul
+          cid="$($DC -f "$COMPOSE_FILE" ps -q backend)"
+          net="$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' "$cid")"
+          echo "compose net=$net"
+
+          # Jenkins container id/name genelde hostname ile aynı olur
+          self="$(hostname)"
+          echo "self=$self"
+
+          docker network connect "$net" "$self" || true
+
+          # artık frontend DNS çözülmeli
+          getent hosts frontend
+          curl -I --max-time 5 http://frontend:5173/ | head -n 1
+        '''
+      }
+    }
+
+
     stage('Install Chromium (for UI E2E)') {
       steps {
         sh '''
@@ -238,11 +261,12 @@ pipeline {
       steps {
         sh '''
           set -eux
-          getent hosts host.docker.internal || true
-          curl -I --max-time 5 http://host.docker.internal:5173/ | head -n 1
+          echo "UI_BASE_URL=$UI_BASE_URL"
+          curl -I --max-time 5 "$UI_BASE_URL/" | head -n 1 || true
         '''
       }
     }
+
 
 
     // 6. aşama: çalışan sistem üzerinde 3 senaryo
