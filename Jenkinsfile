@@ -229,6 +229,15 @@ pipeline {
         '''
       }
     }
+    stage('Verify UI reachable') {
+      steps {
+        sh '''
+          set -eux
+          getent hosts host.docker.internal || true
+          curl -I --max-time 5 http://host.docker.internal:5173/ | head -n 1
+        '''
+      }
+    }
 
 
     // 6. aşama: çalışan sistem üzerinde 3 senaryo
