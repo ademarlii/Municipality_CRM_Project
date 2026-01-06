@@ -6,15 +6,13 @@ pipeline {
   }
 
   environment {
-    COMPOSE_FILE = "docker-compose.yml"
-    BACKEND_URL  = "http://localhost:6969"
-    FRONTEND_URL = "http://localhost:5173"
-    UI_BASE_URL = "http://host.docker.internal:5173"
-    UI_HEADLESS = "true"
+    COMPOSE_FILE  = "docker-compose.yml"
+    BACKEND_URL   = "http://localhost:6969"
+    FRONTEND_URL  = "http://localhost:5173"
 
-
-
-
+    // Jenkins container içinden host'a erişim için (senin senaryo)
+    UI_BASE_URL   = "http://host.docker.internal:5173"
+    UI_HEADLESS   = "true"
   }
 
   triggers {
@@ -144,13 +142,11 @@ pipeline {
       }
     }
 
-
     stage('Wait: Backend Ready') {
       steps {
         sh '''
           set -eux
 
-          # backend container id
           cid="$($DC -f "$COMPOSE_FILE" ps -q backend)"
           if [ -z "$cid" ]; then
             echo "backend container not found"
@@ -158,13 +154,11 @@ pipeline {
             exit 1
           fi
 
-          # compose network name (e.g. adem_default)
           net="$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' "$cid")"
           echo "backend cid=$cid net=$net"
 
           ok="false"
           for i in $(seq 1 90); do
-            # probe from same docker network, using service DNS name: backend
             if docker run --rm --network "$net" curlimages/curl:8.5.0 \
                  -fsS --max-time 2 http://backend:6969/actuator/health \
                | grep -q '"status":"UP"'; then
@@ -219,26 +213,24 @@ pipeline {
       steps {
         sh '''
           set -eux
-          # Jenkins container root değilse bu stage çalışmaz.
-          # Çalışıyorsa:
-          apt-get update
+          apt-get update || true
           apt-get install -y --no-install-recommends \
             chromium \
             libnss3 libglib2.0-0 libgbm1 libasound2 \
             libx11-6 libx11-xcb1 libxcomposite1 libxdamage1 libxext6 \
             libxfixes3 libxrandr2 libxrender1 libxtst6 \
-            fonts-liberation ca-certificates
+            fonts-liberation ca-certificates || true
 
           chromium --version || true
           which chromium || true
         '''
       }
     }
+
     stage('Verify Host Reachable') {
       steps {
         sh '''
           set -eux
-
           echo "UI check:"
           curl -I --max-time 5 http://host.docker.internal:5173/auth/login | head -n 1 || true
 
@@ -248,10 +240,6 @@ pipeline {
       }
     }
 
-
-
-
-    // 6. aşama: çalışan sistem üzerinde 3 senaryo
     stage('6.1- E2E Scenario 1') {
       steps {
         dir('municipality-service-backend') {
@@ -324,6 +312,35 @@ pipeline {
       }
     }
 
+    // ✅ 7- Coverage Report (Maven JaCoCo merge + report)
+    stage('7- Coverage Report (JaCoCo)') {
+      steps {
+        dir('municipality-service-backend') {
+          echo 'Generating JaCoCo merged coverage report...'
+
+          // Coverage raporu fail olursa build'i kırma (isteğine göre)
+          catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+            sh '''
+              set -eux
+              if [ -f "./mvnw" ]; then
+                chmod +x ./mvnw
+                # test tekrar koşmasın diye:
+                ./mvnw -DskipTests=true jacoco:merge jacoco:report
+              else
+                mvn -DskipTests=true jacoco:merge jacoco:report
+              fi
+            '''
+          }
+        }
+      }
+      post {
+        always {
+          echo 'Archiving JaCoCo HTML report as Jenkins artifacts (no HTML Publisher needed).'
+          archiveArtifacts allowEmptyArchive: true, artifacts: 'municipality-service-backend/target/site/jacoco-merged/**'
+        }
+      }
+    }
+
     stage('Fake Deploy') {
       when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
@@ -335,9 +352,7 @@ pipeline {
 
   post {
     always {
-      // Surefire (unit/slice)
       junit allowEmptyResults: true, testResults: 'municipality-service-backend/**/target/surefire-reports/*.xml'
-      // Failsafe (integration)
       junit allowEmptyResults: true, testResults: 'municipality-service-backend/**/target/failsafe-reports/*.xml'
 
       sh '''
