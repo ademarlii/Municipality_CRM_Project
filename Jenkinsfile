@@ -9,11 +9,10 @@ pipeline {
     COMPOSE_FILE = "docker-compose.yml"
     BACKEND_URL  = "http://localhost:6969"
     FRONTEND_URL = "http://localhost:5173"
-   // UI_BASE_URL  = "http://host.docker.internal:5173"
-   //UI_HEADLESS  = "true"
+    UI_BASE_URL = "http://host.docker.internal:5173"
+    UI_HEADLESS = "true"
 
-    UI_BASE_URL  = "http://frontend:5173"
-    UI_HEADLESS  = "true"
+
 
 
   }
@@ -215,28 +214,6 @@ pipeline {
         '''
       }
     }
-    stage('Attach Jenkins to Compose Network') {
-      steps {
-        sh '''
-          set -eux
-          # backend cid üzerinden compose network'ü bul
-          cid="$($DC -f "$COMPOSE_FILE" ps -q backend)"
-          net="$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' "$cid")"
-          echo "compose net=$net"
-
-          # Jenkins container id/name genelde hostname ile aynı olur
-          self="$(hostname)"
-          echo "self=$self"
-
-          docker network connect "$net" "$self" || true
-
-          # artık frontend DNS çözülmeli
-          getent hosts frontend
-          curl -I --max-time 5 http://frontend:5173/ | head -n 1
-        '''
-      }
-    }
-
 
     stage('Install Chromium (for UI E2E)') {
       steps {
