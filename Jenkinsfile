@@ -234,21 +234,19 @@ pipeline {
         '''
       }
     }
-    stage('Verify UI reachable') {
+    stage('Verify Host Reachable') {
       steps {
         sh '''
           set -eux
-          echo "UI_BASE_URL=$UI_BASE_URL"
-          curl -I --max-time 5 "$UI_BASE_URL/" | head -n 1 || true
+
+          echo "UI check:"
+          curl -I --max-time 5 http://host.docker.internal:5173/auth/login | head -n 1 || true
+
+          echo "Backend check:"
+          curl -fsS --max-time 5 http://host.docker.internal:6969/actuator/health || true
         '''
       }
     }
-    set -eux
-    echo "UI check:"
-    curl -I --max-time 5 http://host.docker.internal:5173/auth/login | head -n 1
-
-    echo "Backend check:"
-    curl -fsS --max-time 5 http://host.docker.internal:6969/actuator/health
 
 
 
