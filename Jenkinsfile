@@ -11,6 +11,7 @@ pipeline {
     BACKEND_URL  = "http://localhost:6969"
     FRONTEND_URL = "http://localhost:5173"
 
+
     UI_BASE_URL  = "http://localhost:5173"
     UI_HEADLESS  = "true"
   }
