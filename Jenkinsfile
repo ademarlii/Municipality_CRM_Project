@@ -11,7 +11,6 @@ pipeline {
     BACKEND_URL  = "http://localhost:6969"
     FRONTEND_URL = "http://localhost:5173"
 
-    // Selenium test property'leri (senin BaseUiE2ETest okuyor)
     UI_BASE_URL  = "http://localhost:5173"
     UI_HEADLESS  = "true"
   }
