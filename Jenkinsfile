@@ -9,8 +9,13 @@ pipeline {
     COMPOSE_FILE = "docker-compose.yml"
     BACKEND_URL  = "http://localhost:6969"
     FRONTEND_URL = "http://localhost:5173"
-    UI_BASE_URL  = "http://host.docker.internal:5173"
+   // UI_BASE_URL  = "http://host.docker.internal:5173"
+   //UI_HEADLESS  = "true"
+
+    UI_BASE_URL  = "http://frontend:5173"
     UI_HEADLESS  = "true"
+
+
   }
 
   triggers {
