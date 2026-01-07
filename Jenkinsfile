@@ -288,6 +288,8 @@ pipeline {
       }
     }
 
+
+
     stage('6.3- E2E Scenario 3') {
       steps {
         dir('municipality-service-backend') {
